@@ -7,6 +7,7 @@ import time
 import pybullet_data
 from functions import *
 import rospy
+from geometry_msgs.msg import Pose
 from sensor_msgs.msg import JointState
 from sensor_msgs.msg import PointCloud2, PointField
 import math
@@ -24,13 +25,23 @@ fov = 60
 
 focal_length_x = 1/(math.tan((fov/180.0*pi)/2)*2/640)
 focal_length_y = 1/(math.tan((fov/180.0*pi)/2)*2/480)
-print(focal_length_x)
-print(focal_length_y)
+#print(focal_length_x)
+#print(focal_length_y)
+obastaclePose = [0.0,0.0,0.0,0.0,0.0,0.0,1];
 def callback(data):
 
 	for i in range(len(data.position)):
 		targetPosition[i] = data.position[i]
+def ostacleCallback(data):
+	obastaclePose[0]= data.position.x;
+	obastaclePose[1]= data.position.y;
+	obastaclePose[2]= data.position.z;
+	obastaclePose[3]= data.orientation.x;
+	obastaclePose[4]= data.orientation.y;
+	obastaclePose[5]= data.orientation.z;
+	obastaclePose[6]= data.orientation.w;
 	
+
 	
 def convert_depth_frame_to_pointcloud(depth_image):
 	camera_intrinsics ={"fx":focal_length_x,"ppx": 320,"fy":focal_length_y,"ppy":240}
@@ -70,7 +81,7 @@ def publishPointCloud(d435Id,d435Id2):
 	global pub
 	global pub_joint
 	while 1:
-		print("pub_start")
+		#print("pub_start")
 		d435pos, d435orn = p.getBasePositionAndOrientation(d435Id)
 		d435quat = d435orn
 		d435orn =  p.getEulerFromQuaternion(d435orn)
@@ -159,8 +170,11 @@ def main():
 
 	plane= p.loadURDF("urdf/Environment/environment.urdf",[0.0,2.5,0.0], p.getQuaternionFromEuler([0,0,0]))
 	robotPATH = "urdf/mm_hyu/right_sim.urdf"
+	obstaclePATH = "urdf/obstacle/obstacle.urdf"
+	
 	p.setGravity(0, 0, -9.8)
 	robotId = p.loadURDF(robotPATH,[1.0,0,0.0], p.getQuaternionFromEuler([0,0,0]))
+	obstacleId = p.loadURDF(obstaclePATH,[0,0,0],p.getQuaternionFromEuler([0,0,0]))
 	d435Id = p.loadURDF("./urdf/d435/d435.urdf", [0, 0, 0.0])
 	p.resetBasePositionAndOrientation(d435Id, [0.0, 2.5, 1.5],p.getQuaternionFromEuler([0,pi/8,0]))
 
@@ -179,23 +193,34 @@ def main():
 
 	rospy.init_node('listener', anonymous=True)
 	rospy.Subscriber("/joint_states_desired", JointState, callback)
+	rospy.Subscriber("/obstacle_pose", Pose, ostacleCallback)
+
 
 	pub = rospy.Publisher("/camera/depth/color/points", PointCloud2, queue_size=2)
 	pub_joint = rospy.Publisher("/joint_states", JointState, queue_size=2)
 	
 	t = threading.Thread(target=publishPointCloud, args=(d435Id,d435Id))
 	t.start()
-	print(getHomogeneousMatrix(d435Id));
+	#print(getHomogeneousMatrix(d435Id));
 	rate=rospy.Rate(10);
+	x_Id = p.addUserDebugParameter("x", 0, 7, 0.663)
+	y_Id = p.addUserDebugParameter("y", 0, 5, 0.0)
+	z_Id = p.addUserDebugParameter("z", 0, 3, 0.263)
 	while(1):
 		x = targetPosition[0];
 		y = targetPosition[1];
 		wz = targetPosition[2];
+		obastaclePose[0] = p.readUserDebugParameter(x_Id)
+		obastaclePose[1] = p.readUserDebugParameter(y_Id)
+		obastaclePose[2] = p.readUserDebugParameter(z_Id)	
 		p.resetBasePositionAndOrientation(robotId, [x, y, 0], p.getQuaternionFromEuler([0,0,wz]))	
+		p.resetBasePositionAndOrientation(obstacleId, [obastaclePose[0],obastaclePose[1],obastaclePose[2]], 
+		[obastaclePose[3],obastaclePose[4],obastaclePose[5],obastaclePose[6]])	
+		
 		armNum=0;
 		for j in ArmJoint:
 			p.resetJointState(robotId, j, targetPosition[armNum+3])
-			print(armNum,targetPosition[armNum+3])
+			#print(armNum,targetPosition[armNum+3])
 			armNum = armNum+1
 		joint_states = targetPosition
 
