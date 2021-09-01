@@ -17,7 +17,7 @@ from sensor_msgs import point_cloud2
 
 import threading
 
-targetPosition = [1.0,2.5,0,0,0,0,0,0,0];
+targetPosition = [3.5,2.9,0,0,0,0,0,0,0];
 pi = np.pi
 near = 0.01
 far = 1000
@@ -176,7 +176,7 @@ def main():
 	robotId = p.loadURDF(robotPATH,[1.0,0,0.0], p.getQuaternionFromEuler([0,0,0]))
 	obstacleId = p.loadURDF(obstaclePATH,[0,0,0],p.getQuaternionFromEuler([0,0,0]))
 	d435Id = p.loadURDF("./urdf/d435/d435.urdf", [0, 0, 0.0])
-	p.resetBasePositionAndOrientation(d435Id, [0.0, 2.5, 1.5],p.getQuaternionFromEuler([0,pi/8,0]))
+	p.resetBasePositionAndOrientation(d435Id, [6.0, 1.5, 1.43],p.getQuaternionFromEuler([0,0,pi-pi/8]))
 
 
 	NumberofJoint = p.getNumJoints(robotId)
@@ -201,7 +201,7 @@ def main():
 	
 	t = threading.Thread(target=publishPointCloud, args=(d435Id,d435Id))
 	t.start()
-	#print(getHomogeneousMatrix(d435Id));
+	print(getHomogeneousMatrix(d435Id));
 	rate=rospy.Rate(10);
 	x_Id = p.addUserDebugParameter("x", 0, 7, 0.663)
 	y_Id = p.addUserDebugParameter("y", 0, 5, 0.0)
